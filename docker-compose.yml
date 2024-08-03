@@ -1,0 +1,51 @@
+services:
+  web:
+    #build: .
+    image: opia-server:latest
+    environment:
+      ENV: prod
+      PORT: 8080
+      DEVELOPMENT: false
+      DB_DRIVER: "org.postgresql.Driver"
+      DB_URL: "jdbc:postgresql://db:5432/opia?user=postgres"
+    volumes:
+      - ./uploads:/uploads/
+    ports:
+      - "8080:8080"
+    networks:
+      - outer_edge
+      - default
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=outer_edge"
+      - "traefik.passHostHeader=true"
+      - "traefik.http.routers.opia-api.tls=true"
+      - "traefik.http.routers.opia-api.entrypoints=websecure"
+      - "traefik.http.routers.opia-api.rule=Host(`media.opia.app`)" #  || Host(`opia.local`)
+      - "traefik.http.routers.opia-api.tls.certresolver=prod_tls"
+      - "traefik.http.routers.opia-api.middlewares=secure-headers"
+      - "traefik.http.services.opia-api.loadbalancer.server.port=8080"
+      - "traefik.http.services.opia-api.loadbalancer.server.scheme=http"
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres
+    volumes:
+      - pg-volume:/var/lib/postgresql/data
+      #- ./tmp/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: opia
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "54333:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d opia" ]
+      interval: 1s
+
+volumes:
+  pg-volume: { }
+
+networks:
+  outer_edge:
+    external: true

@@ -3,11 +3,12 @@ val h2_version: String by project
 val ktor_version: String by project
 val kotlin_version: String by project
 val logback_version: String by project
+val pg_version: String by project
 
 plugins {
-    kotlin("jvm") version "1.9.23"
-    id("io.ktor.plugin") version "2.3.11"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
+    kotlin("jvm") version "2.0.21"
+    id("io.ktor.plugin") version "3.0.1"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
 }
 
 group = "app.opia"
@@ -43,7 +44,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposed_version")
     implementation("com.h2database:h2:$h2_version")
-    implementation("org.postgresql:postgresql:42.7.3")
+    implementation("org.postgresql:postgresql:$pg_version")
     implementation("io.ktor:ktor-server-call-logging-jvm")
     implementation("io.ktor:ktor-server-host-common-jvm")
     implementation("io.ktor:ktor-server-status-pages-jvm")

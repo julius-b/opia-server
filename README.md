@@ -69,7 +69,7 @@ curl "$host/api/v1/actors"
 
 ### Create
 ```shell
-output=$(curl -s -d '{"handle":"username","name":"User Name","secret":"secret12"}' -H "Challenge-Response: $actor_phone_no_id,$phone_verification_code" -H "Installation-Id: $installation_id" -H "Content-Type: application/json" "$host/api/v1/actors")
+output=$(curl -s -d '{"handle":"username","name":"User Name","secret":"secret12"}' -H "Challenge-Response: $actor_phone_no_id=$phone_verification_code" -H "Installation-Id: $installation_id" -H "Content-Type: application/json" "$host/api/v1/actors")
 echo "$output"
 export actor_id=$(jq -r '.data.id' <<< "$output")
 echo "actor_id: $actor_id"
@@ -190,7 +190,7 @@ echo "actor2_phone_no_id: $actor2_phone_no_id"
 export phone_verification_code=$(jq -r '.data.verification_code' <<< "$output")
 echo "phone_verification_code: $phone_verification_code"
 
-output=$(curl -s -d '{"handle":"test","name":"Test User","secret":"password"}' -H "Challenge-Response: $actor2_phone_no_id,$phone_verification_code" -H "Installation-Id: $installation_id" -H "Content-Type: application/json" "$host/api/v1/actors")
+output=$(curl -s -d '{"handle":"test","name":"Test User","secret":"password"}' -H "Challenge-Response: $actor2_phone_no_id=$phone_verification_code" -H "Installation-Id: $installation_id" -H "Content-Type: application/json" "$host/api/v1/actors")
 echo "$output"
 export actor2_id=$(jq -r '.data.id' <<< "$output")
 echo "actor2_id: $actor2_id"

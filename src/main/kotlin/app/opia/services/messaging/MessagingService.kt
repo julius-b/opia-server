@@ -35,26 +35,27 @@ class MessagingService {
     private val clients = ConcurrentHashMap<UUID, Connection>()
 
     suspend fun registerClient(conn: Connection) {
-        clients.compute(conn.ioid) { k, curr ->
-            if (curr != null) {
-                log.warn("register - disconnecting curr: ${curr.name}...")
-                // TODO try?
-                runBlocking {
-                    curr.session.close(CloseReason(VIOLATED_POLICY, "duplicate"))
-                }
+        val curr = clients.put(conn.ioid, conn)
+        // NOTE: if a messages arrives at this time, looking up self in the connections list would unexpectedly fail
+        // but the websocket handler never does a lookup, direction is always a loop over the list
+        if (curr != null) {
+            log.warn("register - disconnecting curr: ${curr.name}...")
+            runBlocking {
+                curr.session.close(CloseReason(VIOLATED_POLICY, "duplicate"))
             }
-            conn
         }
         log.info("register - connected: ${conn.name}")
     }
 
-    suspend fun unregisterClient(conn: Connection) {
+    fun unregisterClient(conn: Connection) {
         clients.remove(conn.ioid)
         log.debug("unregister - disconnected: ${conn.name}")
     }
 
     suspend fun send(rcpt: UUID, msg: RTMessage) {
         log.info("send - rcpt: $rcpt, msg: $msg")
+        // NOTE:The view's iterators and spliterators are weakly consistent.
+        // https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html
         for ((_, client) in clients) {
             if (client.ioid == rcpt) {
                 // TODO try, catch=remove from list

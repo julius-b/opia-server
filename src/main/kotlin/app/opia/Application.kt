@@ -18,7 +18,7 @@ fun Application.module() {
     val port = environment.config.propertyOrNull("ktor.deployment.port")?.getString() ?: "8080"
     val portCfg = environment.config.property("ktor.deployment.port").getString()
     val env = environment.config.propertyOrNull("ktor.environment")?.getString()
-    log.info("env: $env, devMode: ${environment.developmentMode}, port: $port / $portCfg")
+    log.info("env: $env, devMode: $developmentMode, port: $port / $portCfg")
 
     val tokenSecret = environment.config.property("jwt.secret").getString()
     val tokenIssuer = environment.config.property("jwt.issuer").getString()

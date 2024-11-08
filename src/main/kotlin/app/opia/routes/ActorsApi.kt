@@ -140,9 +140,13 @@ fun Route.actorsApi() {
                 Code.Required, KeyChallengeResponse
             )
             val properties = mutableListOf<ActorProperty>()
-            responses.forEach { resp ->
-                val split = resp.split(",")
-                if (split.size > 2) throw ValidationException(Code.Schema, KeyChallengeResponse)
+            // NOTE: multiple values for one key might be joined by commas or semicolons
+            responses.map { it.split(';', ',') }.flatten().forEach { resp ->
+                val split = resp.split("=")
+                if (split.size > 2) {
+                    log.warn("actors/post - invalid challenge-response: $resp ($split)")
+                    throw ValidationException(Code.Schema, KeyChallengeResponse to resp)
+                }
                 val id = UUID.fromString(split[0])
                 var property = actorPropertiesService.get(id) ?: throw ValidationException(
                     Code.Reference, KeyChallengeResponse to id

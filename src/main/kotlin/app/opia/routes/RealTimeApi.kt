@@ -45,19 +45,9 @@ fun Route.realtimeApi() {
 
                     // don't really care :)
                 }
-
-                /*for (frame in incoming) {
-                    if (frame is Frame.Text) {
-                        val text = frame.readText()
-                        outgoing.send(Frame.Text("YOU SAID: $text"))
-                        if (text.equals("bye", ignoreCase = true)) {
-                            close(CloseReason(CloseReason.Codes.NORMAL, "Client said BYE"))
-                        }
-                    }
-                }*/
-            } catch (e: Exception) {
-                if (e is ClosedReceiveChannelException) log.info("peer disconnected")
-                else log.error("ws:", e)
+            } catch (e: Throwable) {
+                if (e is ClosedReceiveChannelException) log.info("conn closed: ${conn.name}")
+                else log.error("err <${conn.name}>:", e)
             } finally {
                 messagingService.unregisterClient(conn)
             }

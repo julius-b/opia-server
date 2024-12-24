@@ -1,6 +1,7 @@
 package app.opia.plugins
 
 import app.opia.routes.*
+import app.opia.services.SecurityConfig
 import io.ktor.resources.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -12,7 +13,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 
-fun Application.configureRouting(tokenAudience: String, tokenIssuer: String, tokenSecret: String) {
+fun Application.configureRouting(securityCfg: SecurityConfig) {
     install(Resources)
     install(AutoHeadResponse)
     routing {
@@ -31,7 +32,7 @@ fun Application.configureRouting(tokenAudience: String, tokenIssuer: String, tok
             statusApi()
             installationsApi()
             actorsApi()
-            authSessionsApi(tokenAudience, tokenIssuer, tokenSecret)
+            authSessionsApi(securityCfg)
             // TODO fully wrap in jwt-auth
             mediasApi()
             devApi()

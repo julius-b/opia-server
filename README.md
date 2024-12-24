@@ -95,7 +95,7 @@ export refresh_token=$(jq -r '.data.refresh_token' <<< "$output")
 echo "refresh_token: $refresh_token"
 ```
 
-### Login with phone no
+### Login with phone-no
 - requires `Installation`
 
 ### Refresh Token

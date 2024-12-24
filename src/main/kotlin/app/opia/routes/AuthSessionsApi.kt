@@ -5,7 +5,6 @@ import app.opia.utils.UUIDSerializer
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -43,17 +42,17 @@ data class AuthHints(
     val properties: List<ActorProperty>, val actor: Actor
 )
 
-fun Route.authSessionsApi(tokenAudience: String, tokenIssuer: String, tokenSecret: String) {
+fun Route.authSessionsApi(securityCfg: SecurityConfig) {
     val log = KtorSimpleLogger("auth-sessions-api")
 
     fun genAccessToken(actorId: UUID, ioid: UUID, handle: String): String {
-        return JWT.create().withAudience(tokenAudience)
-            .withIssuer(tokenIssuer)
+        return JWT.create().withAudience(securityCfg.aud)
+            .withIssuer(securityCfg.iss)
             .withClaim("handle", handle)
             .withClaim("actor_id", actorId.toString())
             .withClaim("ioid", ioid.toString())
             .withExpiresAt(Date(System.currentTimeMillis() + 3_600_000))
-            .sign(Algorithm.HMAC256(tokenSecret))
+            .sign(Algorithm.HMAC256(securityCfg.secret))
     }
 
     route("auth_sessions") {

@@ -2,6 +2,7 @@ services:
   web:
     #build: .
     image: opia-server:latest
+    restart: unless-stopped
     environment:
       ENV: prod
       PORT: 8080
@@ -21,7 +22,7 @@ services:
       - "traefik.passHostHeader=true"
       - "traefik.http.routers.opia-api.tls=true"
       - "traefik.http.routers.opia-api.entrypoints=websecure"
-      - "traefik.http.routers.opia-api.rule=Host(`media.opia.app`)" #  || Host(`opia.local`)
+      - "traefik.http.routers.opia-api.rule=Host(`staging.opia.app`) || Host(`media.opia.app`)" #  || Host(`opia.local`)
       - "traefik.http.routers.opia-api.tls.certresolver=prod_tls"
       - "traefik.http.routers.opia-api.middlewares=secure-headers"
       - "traefik.http.services.opia-api.loadbalancer.server.port=8080"

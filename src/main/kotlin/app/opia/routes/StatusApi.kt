@@ -1,7 +1,6 @@
 package app.opia.routes
 
 import app.opia.services.*
-import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.logging.*
@@ -29,7 +28,11 @@ fun Route.statusApi() {
             val authSessions = authSessionsService.all()
             val installationLinks = installationsService.allLinks()
             val medias = mediasService.all()
-            call.respond(StatusResp(actors, actorProperties, installations, authSessions, installationLinks, medias))
+            call.respond(
+                ApiSuccessResponse(
+                    data = StatusResp(actors, actorProperties, installations, authSessions, installationLinks, medias)
+                )
+            )
         }
     }
 }

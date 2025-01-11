@@ -1,12 +1,8 @@
 package app.opia.routes
 
-import app.opia.services.actorLinksService
-import app.opia.services.actorPropertiesService
-import app.opia.services.actorsService
-import app.opia.services.installationsService
+import app.opia.services.*
 import app.opia.utils.UUIDSerializer
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
@@ -14,6 +10,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.logging.*
 import kotlinx.datetime.Instant
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -33,8 +30,8 @@ data class Actor(
     val name: String,
     val desc: String?,
     @Transient val secret: String = "",
-    @SerialName("profile_id") @Serializable(UUIDSerializer::class) val profileId: UUID?,
-    @SerialName("banner_id") @Serializable(UUIDSerializer::class) val bannerId: UUID?,
+    @SerialName("profile_id") @Serializable(UUIDSerializer::class) @EncodeDefault(EncodeDefault.Mode.ALWAYS) val profileId: UUID?,
+    @SerialName("banner_id") @Serializable(UUIDSerializer::class) @EncodeDefault(EncodeDefault.Mode.ALWAYS) val bannerId: UUID?,
     @SerialName("created_at") val createdAt: Instant,
     @SerialName("deleted_at") val deletedAt: Instant?
 ) {
@@ -131,66 +128,83 @@ fun Route.actorsApi() {
 
             val handle = req.handle.trim()
             val name = req.name.trim()
-            val secret = req.secret.trim()
-            if (handle.length < 3 || handle.length > 20) throw ValidationException(Code.Constraint, "handle")
-            if (name.length < 3 || name.length > 50) throw ValidationException(Code.Constraint, "name")
-            if (secret.length < 8) throw ValidationException(Code.Constraint, "secret")
+            val secret = req.secret.sanitizeSecret()
+            if (handle.length < 3 || handle.length > 20) throw ValidationException(
+                "handle", ApiError.Size(handle, min = 3, max = 20)
+            )
+            if (name.length < 3 || name.length > 50) throw ValidationException(
+                "name", ApiError.Size(name, min = 3, max = 50)
+            )
+            if (secret.length < 8) throw ValidationException("secret", ApiError.Size(min = 8))
 
             val responses = call.request.headers.getAll(KeyChallengeResponse) ?: throw ValidationException(
-                Code.Required, KeyChallengeResponse
+                KeyChallengeResponse, ApiError.Required()
             )
             val properties = mutableListOf<ActorProperty>()
             // NOTE: multiple values for one key might be joined by commas or semicolons
             responses.map { it.split(';', ',') }.flatten().forEach { resp ->
                 val split = resp.split("=")
-                if (split.size > 2) {
+                if (split.size != 2) {
                     log.warn("actors/post - invalid challenge-response: $resp ($split)")
-                    throw ValidationException(Code.Schema, KeyChallengeResponse to resp)
+                    throw ValidationException(KeyChallengeResponse, ApiError.Schema(resp, "<uuid>=<code>"))
                 }
                 val id = UUID.fromString(split[0])
                 var property = actorPropertiesService.get(id) ?: throw ValidationException(
-                    Code.Reference, KeyChallengeResponse to id
+                    KeyChallengeResponse, ApiError.Reference(id.toString())
                 )
+                // client needs to know which submitted property id is incorrect
+                // access is forbidden to resource actor_property[$id]
                 if (property.installationId != installationId) throw ValidationException(
-                    Code.Forbidden, KeyInstallationID to installationId
+                    KeyChallengeResponse, ApiError.Forbidden(id.toString(), "installation_id")
+                )
+                // already assigned to another account
+                if (property.actorId != null) throw ValidationException(
+                    KeyChallengeResponse, ApiError.Forbidden(id.toString(), "actor_id")
                 )
                 if (property.valid) {
                     properties.add(property)
                     return@forEach
                 }
-                if (split.size != 2) throw ValidationException(Code.Schema, KeyChallengeResponse)
                 val code = split[1]
+                // TODO return property id as well
                 if (property.verificationCode != code) throw ValidationException(
-                    Code.Forbidden, KeyChallengeResponse to id
+                    KeyChallengeResponse, ApiError.Forbidden(code, "code")
                 )
                 // save validated property
                 property = actorPropertiesService.validateProperty(property.id) ?: throw ValidationException(
-                    Code.Reference, KeyChallengeResponse to id
+                    KeyChallengeResponse, ApiError.Reference(id.toString())
                 )
                 properties.add(property)
             }
             if (properties.none { it.type == ActorProperty.Type.PhoneNo }) {
-                throw ValidationException(Code.Required, KeyChallengeResponse to ActorProperty.Type.PhoneNo)
+                throw ValidationException(
+                    KeyChallengeResponse, ApiError.Required(category = ActorProperty.Type.PhoneNo.name)
+                )
             }
 
+            // TODO same tx as actor.create!! otherwise the failure would never be corrected
             val actor = actorsService.create(handle, name, secret)
             for (i in 0 until properties.size) {
-                // TODO possibly multiple of the same type, only primarize one
+                // TODO possibly multiple of the same type, only primarize one per type
+                // TODO race: first check is necessary before updating valid, but this should also ensure actorId!=null
                 val owned = actorPropertiesService.ownAndPrimarizeProperty(properties[i].id, actor.id)
-                    ?: throw ValidationException(Code.Reference, KeyChallengeResponse to properties[i].id)
+                    ?: throw ValidationException(
+                        KeyChallengeResponse, ApiError.Reference(properties[i].id.toString())
+                    )
                 properties[i] = owned
             }
 
             actorsService.createSecretUpdate(actor.id, actor.secret)
-            call.respond(HttpStatusCode.Created, HintedApiSuccessResponse(Code.OK, data = actor, hints = properties))
+            call.respond(HttpStatusCode.Created, HintedApiSuccessResponse(data = actor, hints = AuthHints(properties)))
         }
         authenticate("auth-jwt") {
             get {
-                call.respond(actorsService.all())
+                val actors = actorsService.all()
+                call.respond(ApiSuccessResponse(count = actors.size, data = actors))
             }
             get("{id}") {
                 val id = UUID.fromString(call.parameters["id"])
-                val actor = actorsService.get(id) ?: throw ValidationException(Code.Reference, "id")
+                val actor = actorsService.get(id) ?: throw ValidationException("id", ApiError.Reference(id.toString()))
                 call.respond(HttpStatusCode.OK, ApiSuccessResponse(data = actor))
             }
             // TODO protect, only self or admin...
@@ -205,8 +219,12 @@ fun Route.actorsApi() {
             }
 
             get("by-handle/{handle}") {
-                val handle = call.parameters["handle"] ?: throw ValidationException(Code.Required, "id")
-                val actor = actorsService.getByHandle(handle) ?: throw ValidationException(Code.Reference, "handle")
+                val handle = call.parameters["handle"] ?: throw ValidationException(
+                    "handle", ApiError.Required()
+                )
+                val actor = actorsService.getByHandle(handle) ?: throw ValidationException(
+                    "handle", ApiError.Reference(handle)
+                )
                 call.respond(HttpStatusCode.OK, ApiSuccessResponse(data = actor))
             }
 
@@ -260,7 +278,7 @@ fun Route.actorsApi() {
                 if (createActorProperty.scope == CreateActorProperty.Scope.Signup) {
                     if (actorPropertiesService.getPrimaryByContent(content) != null) {
                         log.warn("properties/post - value already exists as primary: $content")
-                        throw ValidationException(Code.Conflict, "content" to content)
+                        throw ValidationException("content", ApiError.Conflict(content))
                     }
                 }
 

@@ -37,27 +37,27 @@ class ActorLinkEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var deletedAt by ActorLinks.deletedAt
 }
 
-fun ActorLinkEntity.toActorLink() = ActorLink(actorId.value, peerId.value, perm, createdAt, createdBy.value, deletedAt)
+fun ActorLinkEntity.toDTO() = ActorLink(actorId.value, peerId.value, perm, createdAt, createdBy.value, deletedAt)
 
 class ActorLinksService {
     suspend fun all(): List<ActorLink> = tx {
-        ActorLinkEntity.all().map(ActorLinkEntity::toActorLink)
+        ActorLinkEntity.all().map(ActorLinkEntity::toDTO)
     }
 
     suspend fun listByActor(actorId: UUID): List<ActorLink> = tx {
         ActorLinkEntity.find { (ActorLinks.actorId eq actorId) and (ActorLinks.deletedAt eq null) }
-            .map(ActorLinkEntity::toActorLink)
+            .map(ActorLinkEntity::toDTO)
     }
 
     suspend fun get(id: UUID): ActorLink? = tx {
-        ActorLinkEntity.findById(id)?.toActorLink()
+        ActorLinkEntity.findById(id)?.toDTO()
     }
 
     suspend fun create(actorId: UUID, peerId: UUID): ActorLink = tx {
         ActorLinkEntity.new {
             this.actorId = EntityID(actorId, Actors)
             this.peerId = EntityID(peerId, Actors)
-        }.toActorLink()
+        }.toDTO()
     }
 }
 

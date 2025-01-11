@@ -6,7 +6,6 @@ import app.opia.services.messagesService
 import app.opia.services.messaging.RTMessage
 import app.opia.services.messaging.messagingService
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
@@ -20,12 +19,18 @@ fun Route.devApi() {
     route("send") {
         post("{from_handle}/{peer_handle}") {
             val fromHandle = call.parameters["from_handle"]!!
-            val self = actorsService.getByHandle(fromHandle) ?: throw ValidationException(Code.Reference, "from_handle")
+            val self = actorsService.getByHandle(fromHandle) ?: throw ValidationException(
+                "from_handle", ApiError.Reference(fromHandle)
+            )
             val senderLinks = installationsService.listLinks(self.id)
-            if (senderLinks.isEmpty()) throw ValidationException(Code.Reference, "sender_links")
+            if (senderLinks.isEmpty()) throw ValidationException(
+                "from_handle", ApiError.State(), scope = ValidationScope.Data
+            )
 
             val peerHandle = call.parameters["peer_handle"]!!
-            val peer = actorsService.getByHandle(peerHandle) ?: throw ValidationException(Code.Reference, "peer_handle")
+            val peer = actorsService.getByHandle(peerHandle) ?: throw ValidationException(
+                "peer_handle", ApiError.Reference(peerHandle)
+            )
             val links = installationsService.listLinks(peer.id)
 
             val packets = links.map { MessagePacket(it.id, 0, 0, "Hi".encodeBase64().encodeToByteArray()) }

@@ -1,12 +1,8 @@
 package app.opia.services
 
-import app.opia.routes.Post
+import app.opia.routes.Event
 import app.opia.services.DatabaseSingleton.tx
-import app.opia.utils.UUIDSerializer
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.dao.UUIDEntity
 import org.jetbrains.exposed.dao.UUIDEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -36,27 +32,16 @@ class EventEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     val posts by PostEntity referrersOn Posts.eventId
 }
 
-fun EventEntity.toEvent() =
-    Event(id.value, name, desc, createdBy.value, createdAt, deletedAt, posts.map(PostEntity::toPost))
-
-@Serializable
-data class Event(
-    @Serializable(UUIDSerializer::class) val id: UUID,
-    val name: String,
-    val desc: String,
-    @Serializable(UUIDSerializer::class) val createdBy: UUID,
-    @SerialName("created_at") val createdAt: Instant,
-    @SerialName("deleted_at") val deletedAt: Instant?,
-    val posts: List<Post>
-)
+fun EventEntity.toDTO() =
+    Event(id.value, name, desc, createdBy.value, createdAt, deletedAt, posts.map(PostEntity::toDTO))
 
 class EventsService {
     suspend fun all(): List<Event> = tx {
-        EventEntity.all().map { it.toEvent() }
+        EventEntity.all().map { it.toDTO() }
     }
 
     suspend fun get(id: UUID): Event = tx {
-        EventEntity[id].toEvent()
+        EventEntity[id].toDTO()
     }
 
     suspend fun add(name: String, desc: String, createdBy: UUID): Event = tx {
@@ -64,7 +49,7 @@ class EventsService {
             this.name = name.trim()
             this.desc = desc.trim()
             this.createdBy = EntityID(createdBy, Actors)
-        }.toEvent()
+        }.toDTO()
     }
 }
 

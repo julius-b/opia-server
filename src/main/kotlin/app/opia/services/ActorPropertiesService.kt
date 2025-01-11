@@ -48,7 +48,7 @@ class ActorPropertyEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var deletedAt by ActorProperties.deletedAt
 }
 
-fun ActorPropertyEntity.toActorProperty() = ActorProperty(
+fun ActorPropertyEntity.toDTO() = ActorProperty(
     id.value,
     actorId?.value,
     installationId.value,
@@ -65,22 +65,22 @@ class ActorPropertiesService {
     private val log = KtorSimpleLogger("actor-props-svc")
 
     suspend fun all(): List<ActorProperty> = tx {
-        ActorPropertyEntity.all().map(ActorPropertyEntity::toActorProperty)
+        ActorPropertyEntity.all().map(ActorPropertyEntity::toDTO)
     }
 
     suspend fun get(id: UUID): ActorProperty? = tx {
         ActorPropertyEntity.find { (ActorProperties.id eq id) and (ActorProperties.deletedAt eq null) }.firstOrNull()
-            ?.toActorProperty()
+            ?.toDTO()
     }
 
     suspend fun list(actorId: UUID): List<ActorProperty> = tx {
         ActorPropertyEntity.find { (ActorProperties.actorId eq actorId) and (ActorProperties.deletedAt eq null) }
-            .map(ActorPropertyEntity::toActorProperty)
+            .map(ActorPropertyEntity::toDTO)
     }
 
     suspend fun getPrimaryByContent(content: String): ActorProperty? = tx {
         ActorPropertyEntity.find { (ActorProperties.primary eq true) and (ActorProperties.content eq content) and (ActorProperties.deletedAt eq null) }
-            .firstOrNull()?.toActorProperty()
+            .firstOrNull()?.toDTO()
     }
 
     suspend fun create(installationId: UUID, type: ActorProperty.Type, content: String): ActorProperty = tx {
@@ -93,20 +93,20 @@ class ActorPropertiesService {
             this.type = type
             this.content = content
             this.verificationCode = verificationCode.toString()
-        }.toActorProperty()
+        }.toDTO()
     }
 
     suspend fun validateProperty(id: UUID): ActorProperty? = tx {
         ActorPropertyEntity.findByIdAndUpdate(id) {
             it.valid = true
-        }?.toActorProperty()
+        }?.toDTO()
     }
 
     suspend fun ownAndPrimarizeProperty(id: UUID, actorId: UUID): ActorProperty? = tx {
         ActorPropertyEntity.findByIdAndUpdate(id) {
             it.actorId = EntityID(actorId, Actors)
             it.primary = true
-        }?.toActorProperty()
+        }?.toDTO()
     }
 
     // TODO Entity syntax

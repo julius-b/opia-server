@@ -36,7 +36,7 @@ class InstallationEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var deletedAt by Installations.deletedAt
 }
 
-fun InstallationEntity.toInstallation() =
+fun InstallationEntity.toDTO() =
     Installation(id.value, name, desc, os, clientVersionName, createdAt, deletedAt)
 
 object InstallationLinks : UUIDTable() {
@@ -61,47 +61,55 @@ class InstallationLinkEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var deletedAt by InstallationLinks.deletedAt
 }
 
-fun InstallationLinkEntity.toInstallationLink() = InstallationLink(
+fun InstallationLinkEntity.toDTO() = InstallationLink(
     id.value, installationId.value, actorId.value, createdAt, deletedAt
 )
 
 class InstallationsService {
     suspend fun all(): List<Installation> = tx {
-        InstallationEntity.all().map(InstallationEntity::toInstallation)
+        InstallationEntity.all().map(InstallationEntity::toDTO)
     }
 
     suspend fun get(id: UUID): Installation? = tx {
-        InstallationEntity.findById(id)?.toInstallation()
+        InstallationEntity.findById(id)?.toDTO()
     }
 
     suspend fun create(
         id: UUID, name: String, desc: String, os: Installation.Os, clientVersionName: String
     ): Installation = tx {
+        val curr = InstallationEntity.findByIdAndUpdate(id) {
+            it.name = name
+            it.desc = desc
+            it.os = os
+            it.clientVersionName = clientVersionName
+        }
+        if (curr != null) return@tx curr.toDTO()
+
         InstallationEntity.new(id) {
             this.name = name
             this.desc = desc
             this.os = os
             this.clientVersionName = clientVersionName
-        }.toInstallation()
+        }.toDTO()
     }
 
     suspend fun linkInstallation(actorId: UUID, installationId: UUID): InstallationLink = tx {
         InstallationLinkEntity.new {
             this.installationId = EntityID(installationId, Installations)
             this.actorId = EntityID(actorId, Actors)
-        }.toInstallationLink()
+        }.toDTO()
     }
 
     suspend fun listLinks(aid: UUID): List<InstallationLink> = tx {
-        InstallationLinkEntity.find { InstallationLinks.actorId eq aid }.map(InstallationLinkEntity::toInstallationLink)
+        InstallationLinkEntity.find { InstallationLinks.actorId eq aid }.map(InstallationLinkEntity::toDTO)
     }
 
     suspend fun allLinks(): List<InstallationLink> = tx {
-        InstallationLinkEntity.all().map(InstallationLinkEntity::toInstallationLink)
+        InstallationLinkEntity.all().map(InstallationLinkEntity::toDTO)
     }
 
     suspend fun getLink(ioid: UUID): InstallationLink? = tx {
-        InstallationLinkEntity.findById(ioid)?.toInstallationLink()
+        InstallationLinkEntity.findById(ioid)?.toDTO()
     }
 
     suspend fun deleteLinks(actorId: UUID, installationId: UUID) = tx {

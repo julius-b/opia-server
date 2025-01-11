@@ -21,7 +21,6 @@ object Actors : UUIDTable() {
     val desc = varchar("desc", 250).nullable()
     val secret = varchar("secret", 1000)
 
-    // TODO reference Media
     val profileId = reference("profile_id", Medias).nullable()
     val bannerId = reference("banner_id", Medias).nullable()
     val createdAt = timestamp("created_at").clientDefault {
@@ -50,7 +49,7 @@ class ActorEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var deletedAt by Actors.deletedAt
 }
 
-fun ActorEntity.toActor() =
+fun ActorEntity.toDTO() =
     Actor(id.value, type, auth, handle, name, desc, secret, profileId?.value, bannerId?.value, createdAt, deletedAt)
 
 object SecretUpdates : UUIDTable() {
@@ -72,17 +71,17 @@ class SecretUpdateEntity(id: EntityID<UUID>) : UUIDEntity(id) {
 class ActorsService {
     // TODO filter deletedAt
     suspend fun all(): List<Actor> = tx {
-        ActorEntity.all().map(ActorEntity::toActor)
+        ActorEntity.all().map(ActorEntity::toDTO)
     }
 
     // TODO filter deletedAt
     suspend fun get(id: UUID): Actor? = tx {
-        ActorEntity.findById(id)?.toActor()
+        ActorEntity.findById(id)?.toDTO()
     }
 
     suspend fun getByHandle(handle: String): Actor? = tx {
         ActorEntity.find { (Actors.handle eq handle.sanitizeHandle()) and (Actors.deletedAt eq null) }.firstOrNull()
-            ?.toActor()
+            ?.toDTO()
     }
 
     suspend fun create(handle: String, name: String, secret: String): Actor = tx {
@@ -90,12 +89,26 @@ class ActorsService {
             this.handle = handle.sanitizeHandle()
             this.name = name
             this.secret = secret
-        }.toActor()
+        }.toDTO()
     }
 
     // TODO Entity syntax
     suspend fun delete(id: UUID): Boolean = tx {
         Actors.deleteWhere { Actors.id eq id } > 0
+    }
+
+    // NOTE: no tx
+    fun updateProfile(id: UUID, mediaId: UUID): Actor? {
+        return ActorEntity.findByIdAndUpdate(id) {
+            it.profileId = EntityID(mediaId, Medias)
+        }?.toDTO()
+    }
+
+    // NOTE: no tx
+    fun updateBanner(id: UUID, mediaId: UUID): Actor? {
+        return ActorEntity.findByIdAndUpdate(id) {
+            it.bannerId = EntityID(mediaId, Medias)
+        }?.toDTO()
     }
 
     suspend fun createSecretUpdate(actorId: UUID, secret: String): Unit = tx {

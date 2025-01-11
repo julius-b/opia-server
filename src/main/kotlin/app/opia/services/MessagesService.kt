@@ -60,18 +60,18 @@ class MessageEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     val receipts by MessageReceiptEntity referrersOn MessageReceipts.msgId
 }
 
-fun MessageEntity.toMessage() = Message(
+fun MessageEntity.toDTOEager() = Message(
     id.value,
     fromId.value,
     rcptId.value,
     attCnt,
-    packets.map(MessagePacketEntity::toMessagePacket),
-    receipts.map(MessageReceiptEntity::toMessageReceipt),
+    packets.map(MessagePacketEntity::toShallowDTO),
+    receipts.map(MessageReceiptEntity::toDTO),
     createdAt,
     deletedAt
 )
 
-fun MessageEntity.toRawMessage() = Message(
+fun MessageEntity.toShallowDTO() = Message(
     id.value, fromId.value, rcptId.value, attCnt, emptyList(), emptyList(), createdAt, deletedAt
 )
 
@@ -90,9 +90,10 @@ class MessagePacketEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var msg by MessageEntity referencedOn MessagePackets.msgId
 }
 
-fun MessagePacketEntity.toMessagePacket() = MessagePacket(rcptIOID.value, dup, seqno, payloadEnc)
-fun MessagePacketEntity.toFullMessagePacket() =
-    MessagePacket(rcptIOID.value, dup, seqno, payloadEnc, msg.toRawMessage())
+fun MessagePacketEntity.toShallowDTO() = MessagePacket(rcptIOID.value, dup, seqno, payloadEnc)
+
+fun MessagePacketEntity.toDTOEager() =
+    MessagePacket(rcptIOID.value, dup, seqno, payloadEnc, msg.toShallowDTO())
 
 class MessageReceiptEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     companion object : UUIDEntityClass<MessageReceiptEntity>(MessageReceipts)
@@ -105,17 +106,17 @@ class MessageReceiptEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var readAt by MessageReceipts.readAt
 }
 
-fun MessageReceiptEntity.toMessageReceipt() = MessageReceipt(msgId.value, rcptIOID.value, dup, recvAt, rjctAt, readAt)
+fun MessageReceiptEntity.toDTO() = MessageReceipt(msgId.value, rcptIOID.value, dup, recvAt, rjctAt, readAt)
 
 class MessagesService {
     val log = KtorSimpleLogger("messages-service")
 
     suspend fun all(): List<Message> = tx {
-        MessageEntity.all().map(MessageEntity::toMessage)
+        MessageEntity.all().map(MessageEntity::toDTOEager)
     }
 
     suspend fun get(id: UUID): Message? = tx {
-        MessageEntity.findById(id)?.toMessage()
+        MessageEntity.findById(id)?.toDTOEager()
     }
 
     suspend fun add(aid: UUID, ioid: UUID, msg: CreateMessage): Message = tx {
@@ -124,7 +125,7 @@ class MessagesService {
             // maybe verify packets, etc. match
             // but let's consider it the client's job to understand the response correctly
             log.info("add: returning existing entity")
-            return@tx curr.toMessage()
+            return@tx curr.toDTOEager()
         }
 
         val result = MessageEntity.new(msg.id) {
@@ -156,7 +157,7 @@ class MessagesService {
         }
 
         // load probably not necessary so long as toMessage is called within tx
-        result.load(MessageEntity::packets).load(MessageEntity::receipts).toMessage()
+        result.load(MessageEntity::packets).load(MessageEntity::receipts).toDTOEager()
     }
 
     // list all messages for aid but only include packets for ioid
@@ -170,7 +171,7 @@ class MessagesService {
         //    .where { MessagePackets.rcptIOID eq ioid }
         //MessagePacketEntity.wrapRows(q).toList()
 
-        MessagePacketEntity.find { MessagePackets.rcptIOID eq ioid }.map(MessagePacketEntity::toFullMessagePacket)
+        MessagePacketEntity.find { MessagePackets.rcptIOID eq ioid }.map(MessagePacketEntity::toDTOEager)
     }
 }
 

@@ -1,6 +1,9 @@
 package app.opia.plugins
 
-import app.opia.routes.*
+import app.opia.routes.ApiErrorResponse
+import app.opia.routes.ApiError
+import app.opia.routes.ValidationException
+import app.opia.routes.ValidationScope
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -22,23 +25,17 @@ fun Application.configureAdministration() {
                 // TODO provide get without ?, will return default resp
                 // TODO don't know field
                 is EntityNotFoundException -> {
-                    call.respond(HttpStatusCode.UnprocessableEntity, ApiErrorResponse(Code.Reference))
+                    call.respond(
+                        HttpStatusCode.UnprocessableEntity,
+                        ApiErrorResponse(errors = mapOf("" to arrayOf(ApiError.Reference())))
+                    )
                 }
 
                 is ValidationException -> {
                     call.respond(
                         HttpStatusCode.UnprocessableEntity, ApiErrorResponse(
-                            cause.code, cause.fields.associateBy({ it.first }, { arrayOf(Status(cause.code)) })
-                        )
-                        // TODO , raw = it.second.toString() - probably make all these values string...
-                        // TODO all use of @Contextual seems to be very wrong, could just as well use @Serializer(AnySerializer::class) and do toString there
-                    )
-                }
-
-                is ValidationException2 -> {
-                    call.respond(
-                        HttpStatusCode.UnprocessableEntity, ApiErrorResponse(
-                            cause.status.code, cause.fields.associateBy({ it.first }, { arrayOf(cause.status) })
+                            errors = mapOf(cause.field to cause.errors),
+                            scope = cause.scope ?: ValidationScope.Request
                         )
                     )
                 }

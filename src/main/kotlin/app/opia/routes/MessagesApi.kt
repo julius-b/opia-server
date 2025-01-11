@@ -7,7 +7,6 @@ import app.opia.services.messaging.messagingService
 import app.opia.utils.ByteArraySerializer
 import app.opia.utils.UUIDSerializer
 import io.ktor.http.*
-import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
@@ -73,22 +72,26 @@ fun Route.messagesApi() {
             log.info("post - handle: $handle")
             val req = call.receive<CreateMessage>()
 
-            if (req.packets.isEmpty()) throw ValidationException(Code.Required, "packets")
+            if (req.packets.isEmpty()) throw ValidationException("packets", ApiError.Required())
 
             // illegal state or whatever
             val expectedTargets = installationsService.listLinks(req.rcptId).toMutableList()
-            if (expectedTargets.isEmpty()) throw ValidationException(Code.Reference, "links")
+            if (expectedTargets.isEmpty()) throw ValidationException(
+                "rcpt_id", ApiError.State(), scope = ValidationScope.Data
+            )
 
-            if (req.packets.size != expectedTargets.size) throw ValidationException2(
-                Status(Code.Reference, error = "too many / few"), "packets"
+            if (req.packets.size != expectedTargets.size) throw ValidationException(
+                "packets", ApiError.Size(size = expectedTargets.size)
             )
 
             for (packet in req.packets) {
                 expectedTargets.removeIf { it.id == packet.rcptIOID }
             }
             if (expectedTargets.isNotEmpty()) {
-                log.info("post - expected targets not empty: $expectedTargets")
-                throw ValidationException2(Status(Code.Reference, error = "missing required targets"), "packets")
+                log.info("post - outstanding expected targets: $expectedTargets")
+                throw ValidationException(
+                    "packets", *expectedTargets.map { ApiError.Required(it.id.toString()) }.toTypedArray()
+                )
             }
 
             val msg = messagesService.add(selfId, selfIOID, req)

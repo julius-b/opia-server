@@ -19,6 +19,17 @@ application {
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
+
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        compilerOptions {
+            kotlin.sourceSets.all {
+                freeCompilerArgs.addAll(
+                    "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
+                    "-Xexpect-actual-classes"
+                )
+            }
+        }
+    }
 }
 
 ktor {
@@ -34,6 +45,7 @@ repositories {
 }
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("io.ktor:ktor-server-core-jvm")
     implementation("io.ktor:ktor-server-websockets-jvm")
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")

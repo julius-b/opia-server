@@ -1,14 +1,18 @@
 package app.opia.services
 
 import app.opia.routes.Post
+import app.opia.routes.PostAttachment
 import app.opia.services.DatabaseSingleton.tx
 import kotlinx.datetime.Clock
+import org.jetbrains.exposed.dao.CompositeEntity
+import org.jetbrains.exposed.dao.CompositeEntityClass
 import org.jetbrains.exposed.dao.UUIDEntity
 import org.jetbrains.exposed.dao.UUIDEntityClass
+import org.jetbrains.exposed.dao.id.CompositeID
+import org.jetbrains.exposed.dao.id.CompositeIdTable
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.UUIDTable
 import org.jetbrains.exposed.sql.SizedCollection
-import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
 import java.util.*
 
@@ -38,7 +42,7 @@ class PostEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var medias by MediaEntity via PostAttachments
 }
 
-fun PostEntity.toPost() = Post(
+fun PostEntity.toDTO() = Post(
     id.value,
     title,
     text,
@@ -47,20 +51,33 @@ fun PostEntity.toPost() = Post(
     createdAs?.value,
     createdAt,
     deletedAt,
-    medias.map(MediaEntity::toMedia)
+    medias.map(MediaEntity::toDTO)
 )
 
-// PostAttachment
-object PostAttachments : Table() {
-    val post = reference("post", Posts)
-    val media = reference("media", Medias)
+object PostAttachments : CompositeIdTable() {
+    val postId = reference("post_id", Posts)
+    val mediaId = reference("media_id", Medias)
 
-    override val primaryKey = PrimaryKey(post, media)
+    init {
+        addIdColumn(postId)
+        addIdColumn(mediaId)
+    }
+
+    override val primaryKey = PrimaryKey(postId, mediaId)
 }
+
+class PostAttachmentEntity(id: EntityID<CompositeID>) : CompositeEntity(id) {
+    companion object : CompositeEntityClass<PostAttachmentEntity>(PostAttachments)
+
+    var postId by PostAttachments.postId
+    val mediaId by PostAttachments.mediaId
+}
+
+fun PostAttachmentEntity.toDTO() = PostAttachment(postId.value, mediaId.value)
 
 class PostsService {
     suspend fun all(): List<Post> = tx {
-        PostEntity.all().map(PostEntity::toPost)
+        PostEntity.all().map(PostEntity::toDTO)
     }
 
     suspend fun add(
@@ -85,7 +102,23 @@ class PostsService {
         println("p: ${p.medias}")
         // TODO existing entities are not returned by new
         p.medias = SizedCollection(mediaEntities)
-        p.toPost()
+        p.toDTO()
+    }
+
+    // NOTE: no tx
+    fun linkMedia(id: UUID, mediaId: UUID): Pair<Post, PostAttachment>? {
+        val attachmentId = CompositeID {
+            it[PostAttachments.postId] = id
+            it[PostAttachments.mediaId] = mediaId
+        }
+
+        val attachment = PostAttachmentEntity.new(attachmentId) {}.toDTO()
+
+        // query after creating the attachment to include new media in medias
+        val post = PostEntity.findById(id) ?: return null
+        println("post.medias: ${post.medias.map(MediaEntity::toDTO)}}")
+
+        return Pair(post.toDTO(), attachment)
     }
 }
 

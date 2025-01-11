@@ -5,6 +5,7 @@ import app.opia.utils.UUIDSerializer
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.*
+import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -39,7 +40,7 @@ data class AuthSession(
 
 @Serializable
 data class AuthHints(
-    val properties: List<ActorProperty>, val actor: Actor
+    val properties: List<ActorProperty>, val actor: Actor? = null
 )
 
 fun Route.authSessionsApi(securityCfg: SecurityConfig) {
@@ -67,17 +68,17 @@ fun Route.authSessionsApi(securityCfg: SecurityConfig) {
             var actor = actorsService.getByHandle(unique)
             if (actor == null) {
                 val property = actorPropertiesService.getPrimaryByContent(unique) ?: throw ValidationException(
-                    Code.Reference, "unique"
+                    "unique", ApiError.Reference(unique)
                 )
                 actor = actorsService.get(property.actorId!!)!!
             }
 
-            if (actor.secret != secret) throw ValidationException(Code.Forbidden, "secret")
+            if (actor.secret != secret) throw ValidationException("secret", ApiError.Reference())
 
             val secretUpdate = actorsService.getLatestSecretUpdate(actor.id, actor.secret)
             if (secretUpdate == null) {
                 log.error("post - failed to find SecretUpdate, actor=${actor.id}")
-                throw ValidationException(Code.Internal)
+                throw SimpleValidationException(ApiError.Internal(entity = "secret_update"))
             }
 
             if (ioid != null) {
@@ -111,13 +112,13 @@ fun Route.authSessionsApi(securityCfg: SecurityConfig) {
 
             call.respond(
                 HttpStatusCode.Created,
-                HintedApiSuccessResponse(Code.OK, data = authSession, hints = AuthHints(properties, actor))
+                HintedApiSuccessResponse(data = authSession, hints = AuthHints(properties, actor))
             )
         }
         post("refresh") {
             val installationId = UUID.fromString(call.request.headerOrFail(KeyInstallationID))
             //val auth = call.request.headerOrFail(HttpHeaders.Authorization)
-            val auth = call.request.headerOrFail("X-Refresh-Token")
+            val auth = call.request.headerOrFail(KeyRefreshToken)
             val tokens = auth.split(' ')
             if (tokens.size != 2 || tokens[0] != "Bearer") {
                 call.respond(HttpStatusCode.BadRequest)
@@ -150,6 +151,12 @@ fun Route.authSessionsApi(securityCfg: SecurityConfig) {
             authSession.accessToken = accessToken
 
             call.respond(HttpStatusCode.Created, ApiSuccessResponse(data = authSession))
+        }
+        authenticate("auth-jwt") {
+            get {
+                val authSessions = authSessionsService.all()
+                call.respond(ApiSuccessResponse(count = authSessions.size, data = authSessions))
+            }
         }
     }
 }

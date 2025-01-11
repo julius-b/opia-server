@@ -37,7 +37,7 @@ class AuthSessionEntity(id: EntityID<UUID>) : UUIDEntity(id) {
     var deletedAt by AuthSessions.deletedAt
 }
 
-fun AuthSessionEntity.toAuthSession() = AuthSession(
+fun AuthSessionEntity.toDTO() = AuthSession(
     id.value,
     actorId.value,
     installationId.value,
@@ -51,16 +51,16 @@ fun AuthSessionEntity.toAuthSession() = AuthSession(
 
 class AuthSessionsService {
     suspend fun all(): List<AuthSession> = tx {
-        AuthSessionEntity.all().map { it.toAuthSession() }
+        AuthSessionEntity.all().map { it.toDTO() }
     }
 
     suspend fun get(id: UUID): AuthSession? = tx {
-        AuthSessionEntity.findById(id)?.toAuthSession()
+        AuthSessionEntity.findById(id)?.toDTO()
     }
 
     suspend fun getByRefreshToken(refreshToken: String, installationId: UUID): AuthSession? = tx {
         AuthSessionEntity.find { (AuthSessions.refreshToken eq refreshToken) and (AuthSessions.installationId eq installationId) }
-            .firstOrNull()?.toAuthSession()
+            .firstOrNull()?.toDTO()
     }
 
     suspend fun create(
@@ -72,7 +72,7 @@ class AuthSessionsService {
             this.ioid = EntityID(ioid, InstallationLinks)
             this.secretUpdateId = EntityID(secretUpdateId, SecretUpdates)
             this.refreshToken = refreshToken
-        }.toAuthSession()
+        }.toDTO()
     }
 }
 

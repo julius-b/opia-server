@@ -1,8 +1,7 @@
 package app.opia.plugins
 
 import app.opia.routes.ApiErrorResponse
-import app.opia.routes.Code
-import app.opia.routes.Status
+import app.opia.routes.ApiError
 import app.opia.services.SecurityConfig
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
@@ -33,11 +32,11 @@ fun Application.configureSecurity(securityCfg: SecurityConfig) {
                 }
             }
             challenge { defaultScheme, realm ->
+                // unauthorized (not authenticated / authentication failed)
+                // ApiError only knows Forbidden
                 call.respond(
                     HttpStatusCode.Unauthorized, ApiErrorResponse(
-                        Code.Unauthenticated, mapOf(
-                            Authorization to arrayOf(Status(Code.Unauthenticated, error = "invalid or expired token"))
-                        )
+                        errors = mapOf(Authorization to arrayOf(ApiError.Forbidden(auth = realm)))
                     )
                 )
             }

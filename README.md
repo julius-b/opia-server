@@ -24,8 +24,8 @@
 ## Bash Client
 ### Prod
 ```shell
-export host=https://media.opia.app
-export ws_host=wss://media.opia.app/rt
+export host=https://staging.opia.app
+export ws_host=wss://staging.opia.app/rt
 ```
 
 ### Dev
@@ -64,7 +64,7 @@ echo "phone_verification_code: $phone_verification_code"
 ## Actors Api
 ### List (Authentication required)
 ```shell
-curl "$host/api/v1/actors"
+curl -H "Authorization: Bearer $access_token" "$host/api/v1/actors"
 ```
 
 ### Create
@@ -78,7 +78,7 @@ echo "actor_id: $actor_id"
 ## Auth Sessions Api
 ### List
 ```shell
-curl "$host/api/v1/auth_sessions"
+curl -H "Authorization: Bearer $access_token" "$host/api/v1/auth_sessions"
 ```
 
 ### Login with handle
@@ -109,10 +109,24 @@ output=$(curl -s -X POST -H )
 curl "$host/api/v1/medias"
 ```
 
-### Create
+### Create (set Actor Profile)
 ```shell
-output=$(curl -s -F "file=@src/main/resources/static/opia_logo_21.jpg" -H "Authorization: Bearer $access_token" -H "Content-Type: multipart/form" "$host/api/v1/medias")
+output=$(curl -s -F "file=@src/main/resources/static/opia_logo_21.jpg" \
+-F 'ref={"type":"actor","id":"'$actor_id'","property":"profile"}' \
+-H "Authorization: Bearer $access_token" -H "Content-Type: multipart/form" "$host/api/v1/medias")
 echo "$output"
+# $media_id with apostrophe so it's "nullable" (-> create `Post`)
+export media_id=$(jq '.data.id' <<< "$output")
+echo "media_id: $media_id"
+```
+
+### Create (Attach to Post)
+```shell
+output=$(curl -s -F "file=@src/main/resources/static/opia_logo_21.jpg" \
+-F 'ref={"type":"post","id":"'$post_id'"}' \
+-H "Authorization: Bearer $access_token" -H "Content-Type: multipart/form" "$host/api/v1/medias")
+echo "$output"
+# $media_id with apostrophe so it's "nullable" (-> create `Post`)
 export media_id=$(jq '.data.id' <<< "$output")
 echo "media_id: $media_id"
 ```
@@ -127,19 +141,23 @@ curl -H "Authorization: Bearer $access_token" "$host/api/v1/events"
 ```shell
 output=$(curl -s -d '{"name":"Eventpilled","desc":"Are you eventpilled? Then join us for our great idk bla lorem ipsum"}' -H "Authorization: Bearer $access_token" -H "Content-Type: application/json" "$host/api/v1/events")
 echo "$output"
-export event_id=$(jq '.data.id' <<< "$output")
+export event_id=$(jq -r '.data.id' <<< "$output")
 echo "event_id: $event_id"
 ```
 
 ## Posts Api
 ### List
 ```shell
-curl "$host/api/v1/posts"
+curl -H "Authorization: Bearer $access_token" "$host/api/v1/posts"
 ```
 
 ### Create
 ```shell
-curl -d '{"title":"Post Title","text":"Text","event_id":'"$event_id"',"created_by":'"$actor_id"',"media_ids":['"$media_id"']}' -H "Content-Type: application/json" "$host/api/v1/posts"
+# $media_id with apostrophe so it's "nullable"
+output=$(curl -s -d '{"title":"Post Title","text":"Text","event_id":"'"$event_id"'","media_ids":['"$media_id"']}' -H "Authorization: Bearer $access_token" -H "Content-Type: application/json" "$host/api/v1/posts")
+echo "$output"
+export post_id=$(jq -r '.data.id' <<< "$output")
+echo "post_id: $post_id"
 ```
 
 ## Messages Api
@@ -154,7 +172,7 @@ ioid2='b06a8bc4-68dd-4f85-b780-2fdfb290dc26'
 packet='{"rcpt_ioid":"'$ioid2'","dup":0,"seqno":0,"payload_enc":"'$(base64 <<< hi)'"}'
 output=$(curl -s -d '{"id":"'$(uuidgen)'","rcpt_id":"'$actor2_id'","timestamp":"2023-07-11T10:16:34Z","packets":['$packet']}' -H "Authorization: Bearer $access_token" -H "Content-Type: application/json" "$host/api/v1/messages")
 echo "$output"
-export message_id=$(jq '.data.id' <<< "$output")
+export message_id=$(jq -r '.data.id' <<< "$output")
 echo "message_id: $message_id"
 ```
 

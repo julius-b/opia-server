@@ -35,5 +35,10 @@ object DatabaseSingleton {
         }
     }
 
+    // `newSuspendedTransaction` and `suspendedTransactionAsync` are always executed in a new transaction to prevent
+    // concurrency issues when query execution order could be changed by the `CoroutineDispatcher`. This means that
+    // nesting these suspend transactions may not result in the same behavior as nested `transaction`s
+    // (when `useNestedTransactions = false`), as was shown in the previous section.
+    // https://jetbrains.github.io/Exposed/transactions.html#advanced-parameters-and-usage
     suspend fun <T> tx(block: suspend () -> T): T = newSuspendedTransaction(Dispatchers.IO) { block() }
 }

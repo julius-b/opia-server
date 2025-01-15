@@ -67,6 +67,11 @@ echo "phone_verification_code: $phone_verification_code"
 curl -H "Authorization: Bearer $access_token" "$host/api/v1/actors"
 ```
 
+### Query self (Authentication required)
+```shell
+curl -H "Authorization: Bearer $access_token" "$host/api/v1/actors/$actor_id"
+```
+
 ### Create
 ```shell
 output=$(curl -s -d '{"handle":"username","name":"User Name","secret":"secret12"}' -H "Challenge-Response: $actor_phone_no_id=$phone_verification_code" -H "Installation-Id: $installation_id" -H "Content-Type: application/json" "$host/api/v1/actors")
@@ -87,6 +92,8 @@ curl -H "Authorization: Bearer $access_token" "$host/api/v1/auth_sessions"
 ```shell
 output=$(curl -s -d '{"unique":"username","secret":"secret12","cap_chat":true}' -H "Installation-Id: $installation_id" -H "Content-Type: application/json" "$host/api/v1/auth_sessions")
 echo "$output"
+export actor_id=$(jq -r '.data.actor_id' <<< "$output")
+echo "actor_id: $actor_id"
 export sess_id=$(jq -r '.data.id' <<< "$output")
 echo "sess_id: $sess_id"
 export access_token=$(jq -r '.data.access_token' <<< "$output")

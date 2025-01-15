@@ -43,7 +43,9 @@ fun Application.configureRouting(securityCfg: SecurityConfig) {
                 postsApi()
             }
         }
-        realtimeApi()
+        authenticate("auth-jwt") {
+            realtimeApi()
+        }
     }
 }
 

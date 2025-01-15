@@ -40,7 +40,7 @@ data class AuthSession(
 
 @Serializable
 data class AuthHints(
-    val properties: List<ActorProperty>, val actor: Actor? = null
+    val properties: List<ActorProperty>, val actor: Actor
 )
 
 fun Route.authSessionsApi(securityCfg: SecurityConfig) {

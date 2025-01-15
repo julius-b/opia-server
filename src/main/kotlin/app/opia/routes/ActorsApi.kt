@@ -116,6 +116,11 @@ data class ActorLink(
     }
 }
 
+@Serializable
+data class ActorHints(
+    val properties: List<ActorProperty>
+)
+
 fun Route.actorsApi() {
     val log = KtorSimpleLogger("actors-api")
 
@@ -195,7 +200,7 @@ fun Route.actorsApi() {
             }
 
             actorsService.createSecretUpdate(actor.id, actor.secret)
-            call.respond(HttpStatusCode.Created, HintedApiSuccessResponse(data = actor, hints = AuthHints(properties)))
+            call.respond(HttpStatusCode.Created, HintedApiSuccessResponse(data = actor, hints = ActorHints(properties)))
         }
         authenticate("auth-jwt") {
             get {

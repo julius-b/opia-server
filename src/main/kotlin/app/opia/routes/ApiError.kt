@@ -4,11 +4,6 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-data class Reference(
-    val entity: String? = null,
-    val property: String? = null
-)
-
 @Serializable
 sealed class ApiError {
     // the value that is actually wrong

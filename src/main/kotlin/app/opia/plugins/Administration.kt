@@ -1,7 +1,7 @@
 package app.opia.plugins
 
-import app.opia.routes.ApiErrorResponse
 import app.opia.routes.ApiError
+import app.opia.routes.ApiErrorResponse
 import app.opia.routes.ValidationException
 import app.opia.routes.ValidationScope
 import io.ktor.http.*
@@ -32,8 +32,12 @@ fun Application.configureAdministration() {
                 }
 
                 is ValidationException -> {
+                    val status = if (cause.errors.any { it is ApiError.Conflict }) HttpStatusCode.Conflict
+                    else if (cause.errors.any { it is ApiError.Unauthenticated }) HttpStatusCode.Unauthorized
+                    else if (cause.errors.any { it is ApiError.Forbidden }) HttpStatusCode.Forbidden
+                    else HttpStatusCode.UnprocessableEntity
                     call.respond(
-                        HttpStatusCode.UnprocessableEntity, ApiErrorResponse(
+                        status, ApiErrorResponse(
                             errors = mapOf(cause.field to cause.errors),
                             scope = cause.scope ?: ValidationScope.Request
                         )

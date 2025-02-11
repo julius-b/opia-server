@@ -48,8 +48,4 @@ class ValidationException(
         get() = "$scope.${this.field}: ${errors.contentToString()}"
 }
 
-class SimpleValidationException(val error: ApiError) : Exception()
-
-class AuthException(authenticated: Boolean) : Exception()
-
 typealias Errors = Map<String, Array<out ApiError>>

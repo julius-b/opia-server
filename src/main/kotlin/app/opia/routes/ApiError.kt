@@ -37,8 +37,14 @@ sealed class ApiError {
     @SerialName("forbidden")
     data class Forbidden(
         @EncodeDefault(EncodeDefault.Mode.NEVER) override val value: String? = null,
-        @EncodeDefault(EncodeDefault.Mode.NEVER) val property: String? = null,
-        @EncodeDefault(EncodeDefault.Mode.NEVER) val auth: String? = null
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val property: String? = null
+    ) : ApiError()
+
+    @Serializable
+    @SerialName("unauthenticated")
+    data class Unauthenticated(
+        @EncodeDefault(EncodeDefault.Mode.NEVER) override val value: String? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val property: String? = null
     ) : ApiError()
 
     // Specifically not found, usually client referenced an id that does not exist
@@ -52,7 +58,8 @@ sealed class ApiError {
     @Serializable
     @SerialName("conflict")
     data class Conflict(
-        @EncodeDefault(EncodeDefault.Mode.NEVER) override val value: String? = null
+        @EncodeDefault(EncodeDefault.Mode.NEVER) override val value: String? = null,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val category: String? = null
     ) : ApiError()
 
     @Serializable

@@ -80,6 +80,13 @@ export actor_id=$(jq -r '.data.id' <<< "$output")
 echo "actor_id: $actor_id"
 ```
 
+### Patch (self)
+```shell
+output=$(curl -s -X PATCH -d '{"name":"New Name :)","desc":"New account bio :)"}' -H "Authorization: Bearer $access_token" -H "Content-Type: application/json" "$host/api/v1/actors")
+echo "$output"
+```
+- possible properties (leave out field not to be updated, or `null`): `name`, `desc`
+
 ## Auth Sessions Api
 ### List
 ```shell

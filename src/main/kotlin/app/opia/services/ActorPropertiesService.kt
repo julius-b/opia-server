@@ -12,6 +12,8 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
+import org.jetbrains.exposed.sql.lowerCase
+import org.jetbrains.exposed.sql.trim
 import java.security.SecureRandom
 import java.util.*
 
@@ -30,7 +32,8 @@ object ActorProperties : UUIDTable() {
     val deletedAt = timestamp("deleted_at").nullable()
 
     init {
-        uniqueIndex(content) { (valid eq true) and (primary eq true) and (deletedAt eq null) }
+        uniqueIndex(functions = listOf(content.trim().lowerCase())) { (primary eq true) and (deletedAt eq null) }
+        uniqueIndex(actorId, type) { (primary eq true) and (deletedAt eq null) }
     }
 }
 

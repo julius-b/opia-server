@@ -22,6 +22,13 @@ data class CreateUserAccount(
 )
 
 @Serializable
+data class PatchAccount(
+    val name: String? = null,
+    val desc: String? = null,
+    val secret: String? = null
+)
+
+@Serializable
 data class Actor(
     @Serializable(UUIDSerializer::class) val id: UUID,
     val type: Type,
@@ -134,31 +141,25 @@ fun Route.actorsApi() {
             val handle = req.handle.trim()
             val name = req.name.trim()
             val secret = req.secret.sanitizeSecret()
-            if (handle.length < 3 || handle.length > 20) throw ValidationException(
-                "handle", ApiError.Size(handle, min = 3, max = 20)
-            )
-            if (name.length < 3 || name.length > 50) throw ValidationException(
-                "name", ApiError.Size(name, min = 3, max = 50)
-            )
+            if (handle.length < 3 || handle.length > 20)
+                throw ValidationException("handle", ApiError.Size(handle, min = 3, max = 20))
+            if (name.length < 3 || name.length > 50)
+                throw ValidationException("name", ApiError.Size(name, min = 3, max = 50))
             if (secret.length < 8) throw ValidationException("secret", ApiError.Size(min = 8))
 
-            val responses = call.request.headers.getAll(KeyChallengeResponse) ?: throw ValidationException(
-                KeyChallengeResponse, ApiError.Required()
-            )
+            val responses = call.request.headers.getAll(KeyChallengeResponse)
+                ?: throw ValidationException(KeyChallengeResponse, ApiError.Required())
             val properties = mutableListOf<ActorProperty>()
             // NOTE: multiple values for one key might be joined by commas or semicolons
             responses.map { it.split(';', ',') }.flatten().forEach { resp ->
                 val split = resp.split("=")
                 if (split.size != 2) {
-                    log.warn("actors/post - invalid challenge-response: $resp ($split)")
+                    log.warn("post - invalid challenge-response: $resp ($split)")
                     throw ValidationException(KeyChallengeResponse, ApiError.Schema(resp, "<uuid>=<code>"))
                 }
                 val id = UUID.fromString(split[0])
-                var property = actorPropertiesService.get(id) ?: throw ValidationException(
-                    KeyChallengeResponse, ApiError.Reference(id.toString())
-                )
-                // client needs to know which submitted property id is incorrect
-                // access is forbidden to resource actor_property[$id]
+                var property = actorPropertiesService.get(id)
+                    ?: throw ValidationException(KeyChallengeResponse, ApiError.Reference(id.toString()))
                 if (property.installationId != installationId) throw ValidationException(
                     KeyChallengeResponse, ApiError.Forbidden(id.toString(), "installation_id")
                 )
@@ -192,11 +193,8 @@ fun Route.actorsApi() {
             for (i in 0 until properties.size) {
                 // TODO possibly multiple of the same type, only primarize one per type
                 // TODO race: first check is necessary before updating valid, but this should also ensure actorId!=null
-                val owned = actorPropertiesService.ownAndPrimarizeProperty(properties[i].id, actor.id)
-                    ?: throw ValidationException(
-                        KeyChallengeResponse, ApiError.Reference(properties[i].id.toString())
-                    )
-                properties[i] = owned
+                properties[i] = actorPropertiesService.ownAndPrimarizeProperty(properties[i].id, actor.id)
+                    ?: throw ValidationException(KeyChallengeResponse, ApiError.Reference(properties[i].id.toString()))
             }
 
             actorsService.createSecretUpdate(actor.id, actor.secret)
@@ -206,6 +204,19 @@ fun Route.actorsApi() {
             get {
                 val actors = actorsService.all()
                 call.respond(ApiSuccessResponse(count = actors.size, data = actors))
+            }
+            patch {
+                val principal = call.principal<JWTPrincipal>()!!
+                val handle = principal.payload.getClaim("handle").asString()
+                val self = UUID.fromString(principal.payload.getClaim("actor_id").asString())
+                log.info("patch - handle: $handle, self: $self")
+
+                val patch = call.receive<PatchAccount>()
+                val actor =
+                    actorsService.patch(self, name = patch.name, desc = patch.desc) ?: throw ValidationException(
+                        "id", ApiError.Reference(self.toString()), scope = ValidationScope.Data
+                    )
+                call.respond(ApiSuccessResponse(data = actor))
             }
             get("{id}") {
                 val id = UUID.fromString(call.parameters["id"])
@@ -224,12 +235,9 @@ fun Route.actorsApi() {
             }
 
             get("by-handle/{handle}") {
-                val handle = call.parameters["handle"] ?: throw ValidationException(
-                    "handle", ApiError.Required()
-                )
-                val actor = actorsService.getByHandle(handle) ?: throw ValidationException(
-                    "handle", ApiError.Reference(handle)
-                )
+                val handle = call.parameters["handle"] ?: throw ValidationException("handle", ApiError.Required())
+                val actor =
+                    actorsService.getByHandle(handle) ?: throw ValidationException("handle", ApiError.Reference(handle))
                 call.respond(HttpStatusCode.OK, ApiSuccessResponse(data = actor))
             }
 
@@ -283,7 +291,7 @@ fun Route.actorsApi() {
                 if (createActorProperty.scope == CreateActorProperty.Scope.Signup) {
                     if (actorPropertiesService.getPrimaryByContent(content) != null) {
                         log.warn("properties/post - value already exists as primary: $content")
-                        throw ValidationException("content", ApiError.Conflict(content))
+                        throw ValidationException("content", ApiError.Conflict(content, type.name))
                     }
                 }
 

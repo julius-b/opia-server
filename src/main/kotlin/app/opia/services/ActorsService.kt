@@ -97,6 +97,13 @@ class ActorsService {
         Actors.deleteWhere { Actors.id eq id } > 0
     }
 
+    suspend fun patch(id: UUID, name: String? = null, desc: String? = null): Actor? = tx {
+        ActorEntity.findByIdAndUpdate(id) { actor ->
+            name?.let { actor.name = it }
+            desc?.let { actor.desc = it }
+        }?.toDTO()
+    }
+
     // NOTE: no tx
     fun updateProfile(id: UUID, mediaId: UUID): Actor? {
         return ActorEntity.findByIdAndUpdate(id) {

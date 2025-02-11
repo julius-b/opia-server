@@ -73,24 +73,19 @@ fun Route.authSessionsApi(securityCfg: SecurityConfig) {
                 actor = actorsService.get(property.actorId!!)!!
             }
 
-            if (actor.secret != secret) throw ValidationException("secret", ApiError.Reference())
+            if (actor.secret != secret) throw ValidationException("secret", ApiError.Forbidden())
 
             val secretUpdate = actorsService.getLatestSecretUpdate(actor.id, actor.secret)
             if (secretUpdate == null) {
                 log.error("post - failed to find SecretUpdate, actor=${actor.id}")
-                throw SimpleValidationException(ApiError.Internal(entity = "secret_update"))
+                throw ValidationException("secret_update", ApiError.Internal())
             }
 
             if (ioid != null) {
                 val link = installationsService.getLink(ioid)
-                if (link == null) {
-                    call.respond(HttpStatusCode.UnprocessableEntity)
-                    return@post
-                }
-                if (link.actorId != actor.id) {
-                    call.respond(HttpStatusCode.Forbidden)
-                    return@post
-                }
+                    ?: throw ValidationException("ioid", ApiError.Reference(ioid.toString()))
+                if (link.actorId != actor.id)
+                    throw ValidationException("ioid", ApiError.Forbidden(ioid.toString(), "actor_id"))
                 // TODO delete keys (?)
             } else {
                 log.info("post - linking actor ${actor.id} with installation $installationId")

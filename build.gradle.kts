@@ -6,9 +6,9 @@ val logback_version: String by project
 val pg_version: String by project
 
 plugins {
-    kotlin("jvm") version "2.1.10"
-    id("io.ktor.plugin") version "3.0.3"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.10"
+    kotlin("jvm") version "2.1.20"
+    id("io.ktor.plugin") version "3.1.2"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.1.20"
 }
 
 group = "app.opia"
@@ -34,7 +34,7 @@ application {
 
 ktor {
     docker {
-        jreVersion.set(JavaVersion.VERSION_22)
+        jreVersion.set(JavaVersion.VERSION_21)
         localImageName.set("opia-server")
         imageTag.set("0.0.1-preview")
     }
